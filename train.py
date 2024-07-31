@@ -1,22 +1,22 @@
 import os
 import torch
 import torch.nn as nn
-import albumentations as A
 import torchvision
-from albumentations.pytorch.transforms import ToTensorV2 as ToTensorV2
 from torch.utils.data import DataLoader
 from models.discriminator import Discriminator
 from models.generator import Generator
 from torch.utils.tensorboard.writer import SummaryWriter
 import torchvision.transforms as transforms
+from models.utils import get_device
 
 
 num_epoch = 100
-batch_size = 32
+batch_size = 256
 latent_dim = 64
 
 
 if __name__ == "__main__":
+    device = get_device()
     data = torchvision.datasets.MNIST(
         root="data/",
         download=True,
@@ -35,6 +35,7 @@ if __name__ == "__main__":
         data,
         batch_size=batch_size,
         shuffle=True,
+        num_workers=8,
     )
 
     generator = Generator(latent_dim=latent_dim)
@@ -42,15 +43,15 @@ if __name__ == "__main__":
 
     g_optimizer = torch.optim.Adam(
         generator.parameters(),
-        lr=0.0001,
+        lr=0.0003,
     )
     d_optimizer = torch.optim.Adam(
         discriminator.parameters(),
-        lr=0.0001,
+        lr=0.0003,
     )
 
-    generator.cuda()
-    discriminator.cuda()
+    generator.to(device)
+    discriminator.to(device)
 
     loss_fn = nn.BCELoss()  # G的loss
     writer = SummaryWriter()
@@ -59,21 +60,24 @@ if __name__ == "__main__":
         g_epoch_loss = 0
         d_epoch_loss = 0
         for index, mini_batch in enumerate(dataloader):
+            mini_batch_size = mini_batch[0].size(0)
             generator.train()
             discriminator.train()
 
             images, _ = mini_batch
-            images = images.cuda()
+            images = images.to(device)
 
             # --------训练生成器-----------
 
             # 随机生成一个噪声
-            z = torch.normal(0, 1, (batch_size, latent_dim)).cuda()
+            z = torch.normal(0, 1, (mini_batch_size, latent_dim)).to(device)
 
             # 生成预测
             pred = generator(z)
 
-            g_loss = loss_fn(discriminator(pred), torch.ones(batch_size, 1).cuda())
+            g_loss = loss_fn(
+                discriminator(pred), torch.ones(mini_batch_size, 1).to(device)
+            )
             g_optimizer.zero_grad()
             d_optimizer.zero_grad()
             g_loss.backward()
@@ -85,10 +89,12 @@ if __name__ == "__main__":
             # 1. 将真实的数据预测为1
             # 2. 错误的数据预测为0
 
-            real_loss = loss_fn(discriminator(images), torch.ones(batch_size, 1).cuda())
+            real_loss = loss_fn(
+                discriminator(images), torch.ones(mini_batch_size, 1).to(device)
+            )
 
             fake_loss = loss_fn(
-                discriminator(pred.detach()), torch.zeros(batch_size, 1).cuda()
+                discriminator(pred.detach()), torch.zeros(mini_batch_size, 1).to(device)
             )  # detach是因为不需要生成器部分的梯度
 
             d_loss = 0.5 * (real_loss + fake_loss)
