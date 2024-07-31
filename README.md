@@ -9,10 +9,15 @@ I just implemented the training loop and the generator and discriminator network
 In the training process, I noticed that the loss of the generator are growing up slowly. I think it is because the discriminator is too strong. 
 
 - loss of generator: 
+    
     ![alt text](assets/loss_g.png)
 
 - loss of discriminator:
+    
     ![alt text](assets/loss_d.png)
 
 But in the global view, the generator and discriminator are balanced. And the output image is good.
 
+- output:
+    
+    ![alt text](assets/out.png)
