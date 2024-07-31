@@ -1,3 +1,4 @@
+import os
 import torch
 import torch.nn as nn
 import albumentations as A
@@ -24,6 +25,7 @@ if __name__ == "__main__":
                 [
                     transforms.Resize(28),
                     transforms.ToTensor(),
+                    transforms.Normalize([0.5], [0.5]),
                 ]
             )
         ),
@@ -40,11 +42,11 @@ if __name__ == "__main__":
 
     g_optimizer = torch.optim.Adam(
         generator.parameters(),
-        lr=0.0002,
+        lr=0.0001,
     )
     d_optimizer = torch.optim.Adam(
         discriminator.parameters(),
-        lr=0.0002,
+        lr=0.0001,
     )
 
     generator.cuda()
@@ -66,7 +68,7 @@ if __name__ == "__main__":
             # --------训练生成器-----------
 
             # 随机生成一个噪声
-            z = torch.randn(batch_size, latent_dim).cuda()
+            z = torch.normal(0, 1, (batch_size, latent_dim)).cuda()
 
             # 生成预测
             pred = generator(z)
@@ -89,7 +91,7 @@ if __name__ == "__main__":
                 discriminator(pred.detach()), torch.zeros(batch_size, 1).cuda()
             )  # detach是因为不需要生成器部分的梯度
 
-            d_loss = real_loss + fake_loss
+            d_loss = 0.5 * (real_loss + fake_loss)
 
             d_optimizer.zero_grad()
             d_loss.backward()
@@ -110,6 +112,12 @@ if __name__ == "__main__":
         )
 
     writer.close()
+    check_points_dir = "check_points/"
+    if not os.path.exists(check_points_dir):
+        os.makedirs(check_points_dir)
+
     # 保存模型
-    torch.save(generator.state_dict(), "generator.pth")
-    torch.save(discriminator.state_dict(), "discriminator.pth")
+    torch.save(generator.state_dict(), os.path.join(check_points_dir, "generator.pth"))
+    torch.save(
+        discriminator.state_dict(), os.path.join(check_points_dir, "discriminator.pth")
+    )
